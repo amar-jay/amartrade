@@ -1,4 +1,4 @@
-package trademap
+package types
 
 import (
 	"errors"

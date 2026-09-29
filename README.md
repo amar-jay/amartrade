@@ -50,8 +50,9 @@ go build -o bin/amartrade .
 .
 ├── cmd/                         Cobra commands and CLI presentation
 ├── internal/
-│   └── trademap/                Trade Map transport, models, and validation
-│       └── testdata/            Recorded, sanitized API fixtures
+│   └── trademap/                Trade Map client and service composition
+│       ├── reference/           Reference APIs, catalogs, and search
+│       └── types/               Codes, selectors, enums, and periods
 ├── main.go                      Process entry point and build metadata
 └── README.md
 ```
@@ -63,8 +64,10 @@ main -> cmd -> internal/trademap
 ```
 
 `cmd` owns flags, input validation, and output formatting. The `trademap`
-package owns HTTP requests and provider-specific response types. It must not
-depend on Cobra, write directly to standard output, or terminate the process.
+packages own HTTP requests and provider-specific models. The root package
+composes focused services such as `reference`; shared wire-safe values live in
+`types`. None of these packages may depend on Cobra, write directly to standard
+output, or terminate the process.
 
 ## Planned command surface
 

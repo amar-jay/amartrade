@@ -1,4 +1,6 @@
-package trademap
+package reference
+
+import "github.com/amar-jay/amartrade/internal/trademap/types"
 
 // Availability is an inclusive period range advertised by Trade Map.
 // Zero boundaries mean that the dataset is unavailable.
@@ -9,7 +11,7 @@ type Availability struct {
 }
 
 type Economy struct {
-	Code              EconomyCode
+	Code              types.EconomyCode
 	Label             string
 	NES               bool
 	TradeIndicators   bool
@@ -24,12 +26,12 @@ type Economy struct {
 
 // EconomyMember always carries an economy code, never its containing group ID.
 type EconomyMember struct {
-	Code  EconomyCode
+	Code  types.EconomyCode
 	Label string
 }
 
 type EconomyGroup struct {
-	Code    EconomyGroupCode
+	Code    types.EconomyGroupCode
 	Label   string
 	Type    string
 	Note    string
@@ -37,27 +39,27 @@ type EconomyGroup struct {
 }
 
 type HSProduct struct {
-	Code      HSProductCode
+	Code      types.HSProductCode
 	Label     string
 	Revisions string
 }
 
 type ProductGroup struct {
-	Code     ProductGroupCode
+	Code     types.ProductGroupCode
 	Label    string
 	Level    int
 	Products []HSProduct
 }
 
 type EBOPSService struct {
-	Code        ServiceCode
+	Code        types.ServiceCode
 	DisplayCode string
 	Label       string
 	MaxLevel    string
 }
 
-type EconomyCatalog = Catalog[Economy, EconomyCode]
-type EconomyGroupCatalog = Catalog[EconomyGroup, EconomyGroupCode]
-type HSProductCatalog = Catalog[HSProduct, HSProductCode]
-type ProductGroupCatalog = Catalog[ProductGroup, ProductGroupCode]
-type EBOPSServiceCatalog = Catalog[EBOPSService, ServiceCode]
+type EconomyCatalog = Catalog[Economy, types.EconomyCode]
+type EconomyGroupCatalog = Catalog[EconomyGroup, types.EconomyGroupCode]
+type HSProductCatalog = Catalog[HSProduct, types.HSProductCode]
+type ProductGroupCatalog = Catalog[ProductGroup, types.ProductGroupCode]
+type EBOPSServiceCatalog = Catalog[EBOPSService, types.ServiceCode]

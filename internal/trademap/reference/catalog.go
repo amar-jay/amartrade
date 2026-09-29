@@ -1,4 +1,4 @@
-package trademap
+package reference
 
 import (
 	"fmt"

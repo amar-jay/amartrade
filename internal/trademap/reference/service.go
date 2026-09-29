@@ -1,4 +1,4 @@
-package trademap
+package reference
 
 import (
 	"bytes"
@@ -7,17 +7,29 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/amar-jay/amartrade/internal/trademap/types"
 )
 
+// JSONGetter is the transport capability required by reference data calls.
+type JSONGetter interface {
+	GetJSON(context.Context, string, url.Values, any) error
+}
+
+// Service fetches and indexes Trade Map reference data.
+type Service struct{ client JSONGetter }
+
+func NewService(client JSONGetter) *Service { return &Service{client: client} }
+
 // Economies fetches the authoritative Trade Map economy catalog.
-func (client *Client) Economies(ctx context.Context) (*EconomyCatalog, error) {
+func (service *Service) Economies(ctx context.Context) (*EconomyCatalog, error) {
 	var wire []economyWire
-	if err := client.GetJSON(ctx, "countries", nil, &wire); err != nil {
+	if err := service.client.GetJSON(ctx, "countries", nil, &wire); err != nil {
 		return nil, err
 	}
 	items := make([]Economy, len(wire))
 	for index, record := range wire {
-		code, err := NewEconomyCode(record.Code)
+		code, err := types.NewEconomyCode(record.Code)
 		if err != nil {
 			return nil, fmt.Errorf("trademap: decode economy at index %d: %w", index, err)
 		}
@@ -29,25 +41,25 @@ func (client *Client) Economies(ctx context.Context) (*EconomyCatalog, error) {
 			MonthlyGoods: availability(record.MonthlyGoods),
 		}
 	}
-	return newCatalog("economy", items, func(item Economy) EconomyCode { return item.Code }, func(item Economy) string { return item.Label })
+	return newCatalog("economy", items, func(item Economy) types.EconomyCode { return item.Code }, func(item Economy) string { return item.Label })
 }
 
 // EconomyGroups fetches generic economy groups with their literal membership.
-func (client *Client) EconomyGroups(ctx context.Context) (*EconomyGroupCatalog, error) {
+func (service *Service) EconomyGroups(ctx context.Context) (*EconomyGroupCatalog, error) {
 	var wire []economyGroupWire
 	query := url.Values{"loadMembers": {"true"}}
-	if err := client.GetJSON(ctx, "countries/groups/generic", query, &wire); err != nil {
+	if err := service.client.GetJSON(ctx, "countries/groups/generic", query, &wire); err != nil {
 		return nil, err
 	}
 	items := make([]EconomyGroup, len(wire))
 	for index, record := range wire {
-		code, err := NewEconomyGroupCode(record.ID.String())
+		code, err := types.NewEconomyGroupCode(record.ID.String())
 		if err != nil {
 			return nil, fmt.Errorf("trademap: decode economy group at index %d: %w", index, err)
 		}
 		members := make([]EconomyMember, len(record.Members))
 		for memberIndex, member := range record.Members {
-			memberCode, err := NewEconomyCode(member.Code)
+			memberCode, err := types.NewEconomyCode(member.Code)
 			if err != nil {
 				return nil, fmt.Errorf("trademap: decode member %d of economy group %s: %w", memberIndex, code, err)
 			}
@@ -55,33 +67,33 @@ func (client *Client) EconomyGroups(ctx context.Context) (*EconomyGroupCatalog, 
 		}
 		items[index] = EconomyGroup{Code: code, Label: record.Label, Type: record.Type, Note: record.Note, Members: members}
 	}
-	return newCatalog("economy group", items, func(item EconomyGroup) EconomyGroupCode { return item.Code }, func(item EconomyGroup) string { return item.Label })
+	return newCatalog("economy group", items, func(item EconomyGroup) types.EconomyGroupCode { return item.Code }, func(item EconomyGroup) string { return item.Label })
 }
 
 // HSProducts fetches the HS product hierarchy. Country-specific NTL products
 // are intentionally excluded from this general-purpose catalog.
-func (client *Client) HSProducts(ctx context.Context) (*HSProductCatalog, error) {
+func (service *Service) HSProducts(ctx context.Context) (*HSProductCatalog, error) {
 	var wire []hsProductWire
-	if err := client.GetJSON(ctx, "products/HS", nil, &wire); err != nil {
+	if err := service.client.GetJSON(ctx, "products/HS", nil, &wire); err != nil {
 		return nil, err
 	}
 	items, err := decodeHSProducts(wire, "HS product")
 	if err != nil {
 		return nil, err
 	}
-	return newCatalog("HS product", items, func(item HSProduct) HSProductCode { return item.Code }, func(item HSProduct) string { return item.Label })
+	return newCatalog("HS product", items, func(item HSProduct) types.HSProductCode { return item.Code }, func(item HSProduct) string { return item.Label })
 }
 
 // ProductGroups fetches generic product groups and their products.
-func (client *Client) ProductGroups(ctx context.Context) (*ProductGroupCatalog, error) {
+func (service *Service) ProductGroups(ctx context.Context) (*ProductGroupCatalog, error) {
 	var wire []productGroupWire
 	query := url.Values{"loadProducts": {"true"}}
-	if err := client.GetJSON(ctx, "products/groups/generic", query, &wire); err != nil {
+	if err := service.client.GetJSON(ctx, "products/groups/generic", query, &wire); err != nil {
 		return nil, err
 	}
 	items := make([]ProductGroup, len(wire))
 	for index, record := range wire {
-		code, err := NewProductGroupCode(record.ID.String())
+		code, err := types.NewProductGroupCode(record.ID.String())
 		if err != nil {
 			return nil, fmt.Errorf("trademap: decode product group at index %d: %w", index, err)
 		}
@@ -91,30 +103,30 @@ func (client *Client) ProductGroups(ctx context.Context) (*ProductGroupCatalog, 
 		}
 		items[index] = ProductGroup{Code: code, Label: record.Label, Level: record.Level, Products: products}
 	}
-	return newCatalog("product group", items, func(item ProductGroup) ProductGroupCode { return item.Code }, func(item ProductGroup) string { return item.Label })
+	return newCatalog("product group", items, func(item ProductGroup) types.ProductGroupCode { return item.Code }, func(item ProductGroup) string { return item.Label })
 }
 
 // EBOPSServices fetches the EBOPS service hierarchy.
-func (client *Client) EBOPSServices(ctx context.Context) (*EBOPSServiceCatalog, error) {
+func (service *Service) EBOPSServices(ctx context.Context) (*EBOPSServiceCatalog, error) {
 	var wire []serviceWire
-	if err := client.GetJSON(ctx, "services/EBOPS", nil, &wire); err != nil {
+	if err := service.client.GetJSON(ctx, "services/EBOPS", nil, &wire); err != nil {
 		return nil, err
 	}
 	items := make([]EBOPSService, len(wire))
 	for index, record := range wire {
-		code, err := NewServiceCode(record.Code)
+		code, err := types.NewServiceCode(record.Code)
 		if err != nil {
 			return nil, fmt.Errorf("trademap: decode EBOPS service at index %d: %w", index, err)
 		}
 		items[index] = EBOPSService{Code: code, DisplayCode: record.DisplayCode, Label: record.Label, MaxLevel: record.MaxLevel}
 	}
-	return newCatalog("EBOPS service", items, func(item EBOPSService) ServiceCode { return item.Code }, func(item EBOPSService) string { return item.Label })
+	return newCatalog("EBOPS service", items, func(item EBOPSService) types.ServiceCode { return item.Code }, func(item EBOPSService) string { return item.Label })
 }
 
 func decodeHSProducts(wire []hsProductWire, context string) ([]HSProduct, error) {
 	items := make([]HSProduct, len(wire))
 	for index, record := range wire {
-		code, err := NewHSProductCode(record.Code)
+		code, err := types.NewHSProductCode(record.Code)
 		if err != nil {
 			return nil, fmt.Errorf("trademap: decode %s at index %d: %w", context, index, err)
 		}

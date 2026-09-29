@@ -1,4 +1,4 @@
-package trademap
+package reference_test
 
 import (
 	"context"
@@ -6,6 +6,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/amar-jay/amartrade/internal/trademap"
+	"github.com/amar-jay/amartrade/internal/trademap/reference"
+	"github.com/amar-jay/amartrade/internal/trademap/types"
 )
 
 func TestReferenceCatalogCallsAndLookups(t *testing.T) {
@@ -50,16 +54,17 @@ func TestReferenceCatalogCallsAndLookups(t *testing.T) {
 		_, _ = writer.Write([]byte(body))
 	}))
 	defer server.Close()
-	client, err := NewClient(WithBaseURL(server.URL + "/api"))
+	client, err := trademap.NewClient(trademap.WithBaseURL(server.URL + "/api"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	service := client.ReferenceData()
 
-	economies, err := client.Economies(context.Background())
+	economies, err := service.Economies(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	world, err := economies.ByCode(WorldEconomy)
+	world, err := economies.ByCode(types.WorldEconomy)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +76,7 @@ func TestReferenceCatalogCallsAndLookups(t *testing.T) {
 		t.Fatalf("normalized name lookup = %#v, %v", newLand, err)
 	}
 
-	groups, err := client.EconomyGroups(context.Background())
+	groups, err := service.EconomyGroups(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +91,7 @@ func TestReferenceCatalogCallsAndLookups(t *testing.T) {
 		t.Fatal("group ID was confused with a member economy code")
 	}
 
-	products, err := client.HSProducts(context.Background())
+	products, err := service.HSProducts(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +100,7 @@ func TestReferenceCatalogCallsAndLookups(t *testing.T) {
 		t.Fatalf("HS lookup = %#v, %v", product, err)
 	}
 	_, err = products.ByName(" SAME NAME ")
-	var ambiguous *AmbiguousMatchError
+	var ambiguous *reference.AmbiguousMatchError
 	if !errors.As(err, &ambiguous) {
 		t.Fatalf("error = %v, want AmbiguousMatchError", err)
 	}
@@ -103,7 +108,7 @@ func TestReferenceCatalogCallsAndLookups(t *testing.T) {
 		t.Fatalf("candidates are not deterministic: %#v", ambiguous.Candidates)
 	}
 
-	productGroups, err := client.ProductGroups(context.Background())
+	productGroups, err := service.ProductGroups(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,11 +117,11 @@ func TestReferenceCatalogCallsAndLookups(t *testing.T) {
 		t.Fatalf("product group lookup = %#v, %v", vehicles, err)
 	}
 
-	services, err := client.EBOPSServices(context.Background())
+	services, err := service.EBOPSServices(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	total, err := services.ByCode(TotalServices)
+	total, err := services.ByCode(types.TotalServices)
 	if err != nil || total.DisplayCode != "S" {
 		t.Fatalf("service total lookup = %#v, %v", total, err)
 	}
@@ -126,44 +131,17 @@ func TestReferenceCatalogCallsAndLookups(t *testing.T) {
 	}
 }
 
-func TestCatalogLookupErrors(t *testing.T) {
-	t.Parallel()
-	catalog, err := newCatalog("economy", []Economy{{Code: "004", Label: "Afghanistan"}},
-		func(item Economy) EconomyCode { return item.Code }, func(item Economy) string { return item.Label })
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = catalog.ByCode("999")
-	var notFound *NotFoundError
-	if !errors.As(err, &notFound) {
-		t.Fatalf("error = %v, want NotFoundError", err)
-	}
-	_, err = catalog.ByName("missing")
-	if !errors.As(err, &notFound) {
-		t.Fatalf("error = %v, want NotFoundError", err)
-	}
-}
-
-func TestCatalogRejectsDuplicateCodes(t *testing.T) {
-	t.Parallel()
-	_, err := newCatalog("test", []LookupCandidate{{Code: "1", Label: "One"}, {Code: "1", Label: "Other"}},
-		func(item LookupCandidate) string { return item.Code }, func(item LookupCandidate) string { return item.Label })
-	if err == nil {
-		t.Fatal("duplicate code returned no error")
-	}
-}
-
 func TestReferenceCallRejectsInvalidMemberCode(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		_, _ = writer.Write([]byte(`[{"id":42,"label":"EU","members":[{"countryCd":"40","label":"Austria"}]}]`))
 	}))
 	defer server.Close()
-	client, err := NewClient(WithBaseURL(server.URL))
+	client, err := trademap.NewClient(trademap.WithBaseURL(server.URL))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := client.EconomyGroups(context.Background()); err == nil {
+	if _, err := client.ReferenceData().EconomyGroups(context.Background()); err == nil {
 		t.Fatal("invalid member code returned no error")
 	}
 }
