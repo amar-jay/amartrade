@@ -11,6 +11,8 @@ treated as an unstable dependency.
 
 The reverse-engineered endpoint inventory is maintained in
 [docs/trademap-api.md](docs/trademap-api.md).
+The implementation roadmap and acceptance criteria are tracked in
+[TODO.md](TODO.md).
 
 ## Status
 
