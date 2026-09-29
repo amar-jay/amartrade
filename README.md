@@ -52,6 +52,7 @@ go build -o bin/amartrade .
 ├── internal/
 │   └── trademap/                Trade Map client and service composition
 │       ├── reference/           Reference APIs, catalogs, and search
+│       ├── timeseries/          Goods time-series queries and pagination
 │       └── types/               Codes, selectors, enums, and periods
 ├── main.go                      Process entry point and build metadata
 └── README.md

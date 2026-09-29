@@ -20,6 +20,15 @@ type PeriodRange struct {
 	to   Period
 }
 
+// Granularity returns the shared granularity of the range. The zero value
+// returns an invalid granularity.
+func (periods PeriodRange) Granularity() PeriodGranularity {
+	if !periods.from.valid() || periods.from.granularity != periods.to.granularity {
+		return PeriodGranularity{}
+	}
+	return periods.from.granularity
+}
+
 func NewYear(year int) (Period, error) {
 	if err := validateYear(year); err != nil {
 		return Period{}, err

@@ -44,6 +44,33 @@ var (
 	GrowthValueUnit = Unit{"GV"}
 )
 
+// DataMode selects direct reporter data, mirror partner-reported data, or a
+// provider-selected mixture of both.
+type DataMode struct{ wire string }
+
+var (
+	DirectData = DataMode{"D"}
+	MirrorData = DataMode{"M"}
+	MixedData  = DataMode{"X"}
+)
+
+// HSLevel is the product depth returned by a by-product request.
+type HSLevel struct{ wire string }
+
+var (
+	HS2  = HSLevel{"2"}
+	HS4  = HSLevel{"4"}
+	HS6  = HSLevel{"6"}
+	HS10 = HSLevel{"10"}
+)
+
+type SortDirection struct{ wire string }
+
+var (
+	SortAscending  = SortDirection{"asc"}
+	SortDescending = SortDirection{"desc"}
+)
+
 type OutputMode struct{ wire string }
 
 var (
@@ -66,6 +93,9 @@ func (value Dimension) String() string         { return value.wire }
 func (value Unit) String() string              { return value.wire }
 func (value OutputMode) String() string        { return value.wire }
 func (value PeriodGranularity) String() string { return value.wire }
+func (value DataMode) String() string          { return value.wire }
+func (value HSLevel) String() string           { return value.wire }
+func (value SortDirection) String() string     { return value.wire }
 
 func (value TradeFlow) EncodeQuery(query url.Values) error {
 	return encodeEnum(query, "tradeFlow", value.wire, value.valid())
@@ -77,6 +107,18 @@ func (value Dimension) EncodeQuery(query url.Values) error {
 
 func (value Unit) EncodeQuery(query url.Values) error {
 	return encodeEnum(query, "indicator", value.wire, value.valid())
+}
+
+func (value DataMode) EncodeQuery(query url.Values) error {
+	return encodeEnum(query, "directMirror", value.wire, value.valid())
+}
+
+func (value HSLevel) EncodeQuery(query url.Values) error {
+	return encodeEnum(query, "hsLevel", value.wire, value.valid())
+}
+
+func (value SortDirection) EncodeQuery(query url.Values) error {
+	return encodeEnum(query, "sortDir", value.wire, value.valid())
 }
 
 func (value OutputMode) EncodeQuery(query url.Values) error {
@@ -121,6 +163,15 @@ func (value OutputMode) valid() bool {
 }
 func (value PeriodGranularity) valid() bool {
 	return value == YearGranularity || value == QuarterGranularity || value == MonthGranularity
+}
+func (value DataMode) valid() bool {
+	return value == DirectData || value == MirrorData || value == MixedData
+}
+func (value HSLevel) valid() bool {
+	return value == HS2 || value == HS4 || value == HS6 || value == HS10
+}
+func (value SortDirection) valid() bool {
+	return value == SortAscending || value == SortDescending
 }
 
 func encodeEnum(query url.Values, key, wire string, valid bool) error {
