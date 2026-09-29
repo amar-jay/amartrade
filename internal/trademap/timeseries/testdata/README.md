@@ -14,3 +14,8 @@ files are therefore minimal synthetic successful responses used to test
 decoding and route construction. Replace them with sanitized recordings when
 an explicitly authorized fixture-recording credential is available. No token,
 cookie, or account data may be committed.
+
+The six files under `services/` were recorded from the corresponding public
+yearly and quarterly services endpoints on 2026-09-30 with `page=1` and
+`pageSize=2`. The by-service fixtures demonstrate the request/response mapping
+from `service=ALL` to the aggregate `productCd=S00` record.

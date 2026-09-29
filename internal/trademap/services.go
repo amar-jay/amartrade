@@ -14,3 +14,8 @@ func (client *Client) ReferenceData() *reference.Service {
 func (client *Client) GoodsTimeSeries() *timeseries.Service {
 	return timeseries.NewService(client)
 }
+
+// ServiceTimeSeries returns the services time-series API backed by this client.
+func (client *Client) ServiceTimeSeries() *timeseries.Service {
+	return timeseries.NewService(client)
+}

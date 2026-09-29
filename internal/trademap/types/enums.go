@@ -64,6 +64,17 @@ var (
 	HS10 = HSLevel{"10"}
 )
 
+// ServiceLevel is the EBOPS code length requested through bpmLevel.
+type ServiceLevel struct{ wire string }
+
+var (
+	ServiceLevel3  = ServiceLevel{"3"}
+	ServiceLevel6  = ServiceLevel{"6"}
+	ServiceLevel9  = ServiceLevel{"9"}
+	ServiceLevel12 = ServiceLevel{"12"}
+	ServiceLevel15 = ServiceLevel{"15"}
+)
+
 type SortDirection struct{ wire string }
 
 var (
@@ -96,6 +107,7 @@ func (value PeriodGranularity) String() string { return value.wire }
 func (value DataMode) String() string          { return value.wire }
 func (value HSLevel) String() string           { return value.wire }
 func (value SortDirection) String() string     { return value.wire }
+func (value ServiceLevel) String() string      { return value.wire }
 
 func (value TradeFlow) EncodeQuery(query url.Values) error {
 	return encodeEnum(query, "tradeFlow", value.wire, value.valid())
@@ -115,6 +127,10 @@ func (value DataMode) EncodeQuery(query url.Values) error {
 
 func (value HSLevel) EncodeQuery(query url.Values) error {
 	return encodeEnum(query, "hsLevel", value.wire, value.valid())
+}
+
+func (value ServiceLevel) EncodeQuery(query url.Values) error {
+	return encodeEnum(query, "bpmLevel", value.wire, value.valid())
 }
 
 func (value SortDirection) EncodeQuery(query url.Values) error {
@@ -172,6 +188,9 @@ func (value HSLevel) valid() bool {
 }
 func (value SortDirection) valid() bool {
 	return value == SortAscending || value == SortDescending
+}
+func (value ServiceLevel) valid() bool {
+	return value == ServiceLevel3 || value == ServiceLevel6 || value == ServiceLevel9 || value == ServiceLevel12 || value == ServiceLevel15
 }
 
 func encodeEnum(query url.Values, key, wire string, valid bool) error {

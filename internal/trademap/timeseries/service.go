@@ -15,20 +15,19 @@ type Service struct{ client JSONGetter }
 
 func NewService(client JSONGetter) *Service { return &Service{client: client} }
 
-// Page validates request and fetches exactly one result page.
-func (service *Service) Page(ctx context.Context, request Request) (*Page, error) {
-	endpoint, query, normalized, err := request.endpointAndQuery()
+// Page validates a goods or services request and fetches exactly one page.
+func (service *Service) Page(ctx context.Context, request Query) (*Page, error) {
+	prepared, err := request.prepare()
 	if err != nil {
 		return nil, err
 	}
 	var page Page
-	if err := service.client.GetJSON(ctx, endpoint, query, &page); err != nil {
+	if err := service.client.GetJSON(ctx, prepared.endpoint, prepared.query, &page); err != nil {
 		return nil, err
 	}
-	measurement := measurementFor(normalized)
-	page.Measurement = measurement
-	attachMeasurement(page.Records, measurement)
-	attachMeasurement(page.AggregateRecords, measurement)
+	page.Measurement = prepared.measurement
+	attachMeasurement(page.Records, prepared.measurement)
+	attachMeasurement(page.AggregateRecords, prepared.measurement)
 	return &page, nil
 }
 

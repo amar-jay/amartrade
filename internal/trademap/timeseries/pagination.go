@@ -24,7 +24,7 @@ func (err *LimitError) Error() string {
 
 type Iterator struct {
 	service *Service
-	request Request
+	request Query
 	limits  Limits
 	current *Page
 	pages   int
@@ -33,15 +33,15 @@ type Iterator struct {
 	err     error
 }
 
-func (service *Service) NewIterator(request Request, limits Limits) (*Iterator, error) {
+func (service *Service) NewIterator(request Query, limits Limits) (*Iterator, error) {
 	if err := validateLimits(limits); err != nil {
 		return nil, err
 	}
-	_, _, normalized, err := request.endpointAndQuery()
+	prepared, err := request.prepare()
 	if err != nil {
 		return nil, err
 	}
-	return &Iterator{service: service, request: normalized, limits: limits}, nil
+	return &Iterator{service: service, request: prepared.normalized, limits: limits}, nil
 }
 
 // Next fetches the next page. It returns false on completion or error.
@@ -70,7 +70,7 @@ func (iterator *Iterator) Next(ctx context.Context) bool {
 	if pageRecords == 0 || (page.TotalPages > 0 && page.Number >= page.TotalPages) {
 		iterator.done = true
 	} else {
-		iterator.request.Pagination.Number++
+		iterator.request = iterator.request.withPage(page.Number + 1)
 	}
 	return true
 }
@@ -80,7 +80,7 @@ func (iterator *Iterator) Err() error  { return iterator.err }
 
 // AllPages fetches every available page within explicit safety limits. On a
 // limit or transport error it returns pages already fetched together with err.
-func (service *Service) AllPages(ctx context.Context, request Request, limits Limits) ([]*Page, error) {
+func (service *Service) AllPages(ctx context.Context, request Query, limits Limits) ([]*Page, error) {
 	iterator, err := service.NewIterator(request, limits)
 	if err != nil {
 		return nil, err

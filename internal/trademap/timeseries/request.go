@@ -41,6 +41,32 @@ type Sort struct {
 	Direction types.SortDirection
 }
 
+// Query is implemented by validated goods and service time-series requests.
+type Query interface {
+	prepare() (preparedQuery, error)
+	withPage(int) Query
+}
+
+type preparedQuery struct {
+	endpoint    string
+	query       url.Values
+	normalized  Query
+	measurement Measurement
+}
+
+func (request Request) prepare() (preparedQuery, error) {
+	endpoint, query, normalized, err := request.endpointAndQuery()
+	if err != nil {
+		return preparedQuery{}, err
+	}
+	return preparedQuery{endpoint: endpoint, query: query, normalized: normalized, measurement: measurementFor(normalized)}, nil
+}
+
+func (request Request) withPage(page int) Query {
+	request.Pagination.Number = page
+	return request
+}
+
 func (request Request) endpointAndQuery() (string, url.Values, Request, error) {
 	request = request.withDefaults()
 	frequency, err := request.Frequency.PathSegment()
