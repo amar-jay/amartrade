@@ -1,7 +1,6 @@
 - [x] Core HTTP client and typed errors
 - [x] Codes, selectors, and request validation
 - [x] Countries, economy groups, HS, product groups, and EBOPS catalogs
-- [x] Services time-series API
 - [x] Goods time-series API
 - [ ] Indicators and data coverage
 - [ ] Pagination, caching, retries, and rate limiting
