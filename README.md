@@ -16,8 +16,8 @@ The implementation roadmap and acceptance criteria are tracked in
 
 ## Status
 
-The Cobra command framework and project boundaries are in place. Trade Map
-requests and user-facing data commands have not been implemented yet.
+The CLI can list Trade Map reference catalogs and query goods and services
+time series. Indicator commands are not available yet.
 
 ## Requirements
 
@@ -30,6 +30,8 @@ Run the CLI directly:
 ```sh
 go run . --help
 go run . version
+go run . trademap reference economies --help
+go run . trademap goods time-series --help
 ```
 
 Run the tests:
@@ -75,10 +77,21 @@ output, or terminate the process.
 The initial API-backed commands will follow this shape:
 
 ```text
+amartrade trademap reference economies
+amartrade trademap reference economy-groups
+amartrade trademap reference products
+amartrade trademap reference product-groups
+amartrade trademap reference services
 amartrade trademap goods time-series
-amartrade trademap goods indicators
 amartrade trademap services time-series
 ```
+
+Reference commands accept `--code`, `--name`, or `--search`. Time-series
+commands take `--frequency`, `--dimension`, reporter and partner selectors,
+a product or service selector, `--from`, `--to`, and `--flow`. `--format`
+selects `table` (the default), `json`, or `jsonl`. `--all` walks pages up to
+`--max-pages` and `--max-records`. `--base-url` and `--timeout` are persistent
+on `trademap`.
 
 Commands intended for agents should support JSON output, write data only to
 stdout, write diagnostics to stderr, and return a non-zero status for errors.

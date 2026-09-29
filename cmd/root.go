@@ -19,7 +19,7 @@ func NewRootCommand(version, date string) *cobra.Command {
 
 	root.Version = version
 	root.SetVersionTemplate("{{with .Name}}{{printf \"%s \" .}}{{end}}{{printf \"%s\" .Version}}\n")
-	root.AddCommand(newVersionCommand(version, date))
+	root.AddCommand(newVersionCommand(version, date), newTradeMapCommand())
 
 	return root
 }

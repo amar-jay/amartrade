@@ -2,6 +2,7 @@
 - [x] Codes, selectors, and request validation
 - [x] Countries, economy groups, HS, product groups, and EBOPS catalogs
 - [x] Goods time-series API
+- [-] Services time-series API - (delibrately left out)
 - [ ] Indicators and data coverage
 - [ ] Pagination, caching, retries, and rate limiting
 - [ ] smoke tests
