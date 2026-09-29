@@ -1,5 +1,5 @@
-- [ ] Core HTTP client and typed errors
-- [ ] Codes, selectors, and request validation
+- [x] Core HTTP client and typed errors
+- [x] Codes, selectors, and request validation
 - [ ] Countries, economy groups, HS, product groups, and EBOPS catalogs
 - [ ] Goods and services time-series APIs
 - [ ] Indicators and data coverage
