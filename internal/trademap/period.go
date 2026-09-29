@@ -50,7 +50,7 @@ func NewMonth(year, month int) (Period, error) {
 // ParsePeriod parses the exact API encoding for the supplied granularity.
 func ParsePeriod(granularity PeriodGranularity, value string) (Period, error) {
 	if !granularity.valid() {
-		return Period{}, errorsInvalidGranularity()
+		return Period{}, fmt.Errorf("trademap: period granularity is not initialized")
 	}
 	wantLength := 4
 	if granularity != YearGranularity {
@@ -130,8 +130,4 @@ func validateYear(year int) error {
 		return fmt.Errorf("trademap: year must be between 1 and 9999: %d", year)
 	}
 	return nil
-}
-
-func errorsInvalidGranularity() error {
-	return fmt.Errorf("trademap: period granularity is not initialized")
 }

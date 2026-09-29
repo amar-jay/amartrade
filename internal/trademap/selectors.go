@@ -15,18 +15,20 @@ const (
 
 // ReporterSelector selects exactly one reporter economy or economy group.
 type ReporterSelector struct {
-	kind selectorKind
-	code string
+	exclusiveSelector
 }
 
 // PartnerSelector selects exactly one partner economy or economy group.
 type PartnerSelector struct {
-	kind selectorKind
-	code string
+	exclusiveSelector
 }
 
 // GoodsSelector selects exactly one HS product or product group.
 type GoodsSelector struct {
+	exclusiveSelector
+}
+
+type exclusiveSelector struct {
 	kind selectorKind
 	code string
 }
@@ -36,51 +38,33 @@ type GoodsSelector struct {
 type ServiceSelector struct{ code ServiceCode }
 
 func ReporterEconomy(code EconomyCode) (ReporterSelector, error) {
-	validated, err := NewEconomyCode(string(code))
-	if err != nil {
-		return ReporterSelector{}, err
-	}
-	return ReporterSelector{kind: selectorIndividual, code: string(validated)}, nil
+	selector, err := newExclusiveSelector(code, NewEconomyCode, selectorIndividual)
+	return ReporterSelector{selector}, err
 }
 
 func ReporterEconomyGroup(code EconomyGroupCode) (ReporterSelector, error) {
-	validated, err := NewEconomyGroupCode(string(code))
-	if err != nil {
-		return ReporterSelector{}, err
-	}
-	return ReporterSelector{kind: selectorGroup, code: string(validated)}, nil
+	selector, err := newExclusiveSelector(code, NewEconomyGroupCode, selectorGroup)
+	return ReporterSelector{selector}, err
 }
 
 func PartnerEconomy(code EconomyCode) (PartnerSelector, error) {
-	validated, err := NewEconomyCode(string(code))
-	if err != nil {
-		return PartnerSelector{}, err
-	}
-	return PartnerSelector{kind: selectorIndividual, code: string(validated)}, nil
+	selector, err := newExclusiveSelector(code, NewEconomyCode, selectorIndividual)
+	return PartnerSelector{selector}, err
 }
 
 func PartnerEconomyGroup(code EconomyGroupCode) (PartnerSelector, error) {
-	validated, err := NewEconomyGroupCode(string(code))
-	if err != nil {
-		return PartnerSelector{}, err
-	}
-	return PartnerSelector{kind: selectorGroup, code: string(validated)}, nil
+	selector, err := newExclusiveSelector(code, NewEconomyGroupCode, selectorGroup)
+	return PartnerSelector{selector}, err
 }
 
 func GoodsProduct(code HSProductCode) (GoodsSelector, error) {
-	validated, err := NewHSProductCode(string(code))
-	if err != nil {
-		return GoodsSelector{}, err
-	}
-	return GoodsSelector{kind: selectorIndividual, code: string(validated)}, nil
+	selector, err := newExclusiveSelector(code, NewHSProductCode, selectorIndividual)
+	return GoodsSelector{selector}, err
 }
 
 func GoodsProductGroup(code ProductGroupCode) (GoodsSelector, error) {
-	validated, err := NewProductGroupCode(string(code))
-	if err != nil {
-		return GoodsSelector{}, err
-	}
-	return GoodsSelector{kind: selectorGroup, code: string(validated)}, nil
+	selector, err := newExclusiveSelector(code, NewProductGroupCode, selectorGroup)
+	return GoodsSelector{selector}, err
 }
 
 func Service(code ServiceCode) (ServiceSelector, error) {
@@ -122,6 +106,14 @@ func (selector ServiceSelector) EncodeQuery(query url.Values) error {
 	}
 	query.Set("service", string(validated.code))
 	return nil
+}
+
+func newExclusiveSelector[C ~string](code C, validate func(string) (C, error), kind selectorKind) (exclusiveSelector, error) {
+	validated, err := validate(string(code))
+	if err != nil {
+		return exclusiveSelector{}, err
+	}
+	return exclusiveSelector{kind: kind, code: string(validated)}, nil
 }
 
 func addExclusiveSelector(query url.Values, kind selectorKind, code, individualKey, groupKey string) error {
