@@ -10,3 +10,34 @@ so its integration is kept behind a dedicated internal package and must be
 treated as an unstable dependency.
 The reverse-engineered endpoint inventory is maintained in
 [docs/trademap-api.md](docs/trademap-api.md).
+
+The first working slice supports annual goods imports and exports:
+
+```sh
+amartrade trademap goods exports \
+  --by country \
+  --from DEU \
+  --years 2020:2024 \
+  --format csv
+```
+
+Economies accept ISO alpha-3 codes (`DEU`, `TUR`), Trade Map's native
+three-digit codes, labels, `WORLD`, and group labels such as `EU27` or
+`ASEAN`. Native group IDs use `group:<id>` when they could be ambiguous.
+
+Use `--to` for the partner, `--product` for an HS code or product group,
+and `--by country|partner|product` to choose the expanded dimension. Product
+groups can be selected by label or `group:<id>`. JSON is the default output;
+CSV produces a wide table with one column per year, and JSONL emits one compact
+record per line. Normal JSON and JSONL use the same row model, with yearly
+values under `values`. Pass `--raw` with JSON to include query metadata, labels,
+sources, units, and provider flags; raw mode is not available with JSONL.
+
+```text
+REPORTER,PARTNER,PRODUCT,AGGREGATE,CURRENCY,VALUE_SCALE,2024
+DEU,WORLD,TOTAL,false,USD,units,1677078371000
+```
+
+Trade Map reports monetary values in thousands of USD. `amartrade` converts
+them to exact USD units. Meaningful group aggregates are retained and marked;
+provider duplicates of an individual record are removed.
