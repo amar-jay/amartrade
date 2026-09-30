@@ -41,3 +41,19 @@ DEU,WORLD,TOTAL,false,USD,units,1677078371000
 Trade Map reports monetary values in thousands of USD. `amartrade` converts
 them to exact USD units. Meaningful group aggregates are retained and marked;
 provider duplicates of an individual record are removed.
+
+Use `search` to discover copy-ready economy, group, and product selectors:
+
+```sh
+amartrade trademap search EU27
+amartrade trademap search "live animals" --type product --format jsonl
+amartrade trademap search vehicles --type product-group --format csv
+```
+
+`--type` accepts `all`, `economy`, `economy-group`, `product`, or
+`product-group`. Results include the selector accepted by query commands, the
+native Trade Map code, label, HS level, and the provider's opaque HS revision
+marker where relevant. The default limit is 20; pass `--limit 0` for all
+matches. Exact HS-code searches include the full classification hierarchy and
+return only that definition by default; add `--children` to include descendant
+codes.

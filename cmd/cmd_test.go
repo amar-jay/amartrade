@@ -26,3 +26,12 @@ func TestYearsRequiredBeforeNetwork(t *testing.T) {
 		t.Fatalf("expected required flag error, got %v", err)
 	}
 }
+
+func TestSearchRequiresQuery(t *testing.T) {
+	root := NewRoot("dev", "unknown", &bytes.Buffer{}, &bytes.Buffer{})
+	root.SetArgs([]string{"trademap", "search"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "accepts 1 arg") {
+		t.Fatalf("expected argument error, got %v", err)
+	}
+}

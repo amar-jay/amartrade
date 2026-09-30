@@ -57,12 +57,14 @@ type countryGroup struct {
 	Members []country `json:"members"`
 }
 type product struct {
-	Code  string `json:"productCd"`
-	Label string `json:"label"`
+	Code      string `json:"productCd"`
+	Label     string `json:"label"`
+	Revisions string `json:"revisions"`
 }
 type productGroup struct {
 	ID    int    `json:"id"`
 	Label string `json:"label"`
+	Level int    `json:"level"`
 }
 type wireRecord struct {
 	ReporterCode  string      `json:"reporterCd"`
