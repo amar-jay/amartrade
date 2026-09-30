@@ -9,24 +9,20 @@ import (
 
 func newGoodsCommand() *cobra.Command {
 	command := &cobra.Command{Use: "goods", Short: "Query Trade Map goods data"}
-	series := newTimeSeriesCommand(true)
-	command.AddCommand(series)
+	command.AddCommand(newTimeSeriesCommand(true))
 	return command
 }
 
 func newServicesCommand() *cobra.Command {
 	command := &cobra.Command{Use: "services", Short: "Query Trade Map services data"}
-	series := newTimeSeriesCommand(false)
-	command.AddCommand(series)
+	command.AddCommand(newTimeSeriesCommand(false))
 	return command
 }
 
 func newTimeSeriesCommand(goods bool) *cobra.Command {
-	use := "time-series"
-	short := "Fetch one page, or every page, of a time series"
 	command := &cobra.Command{
-		Use:   use,
-		Short: short,
+		Use:   "time-series",
+		Short: "Fetch one page, or every page, of a time series",
 		Args:  cobra.NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
 			if goods {
@@ -38,13 +34,11 @@ func newTimeSeriesCommand(goods bool) *cobra.Command {
 	flags := command.Flags()
 	flags.String("frequency", "", "yearly, quarterly, or monthly")
 	flags.String("dimension", "", "byProduct, byCountry, or byPartner for goods; byService, byCountry, or byPartner for services")
-	flags.String("reporter", "", "three-digit reporter economy code")
-	flags.String("reporter-group", "", "reporter economy-group ID")
-	flags.String("partner", "", "three-digit partner economy code")
-	flags.String("partner-group", "", "partner economy-group ID")
-	flags.String("from", "", "first period (YYYY, YYYYQQ, or YYYYMM)")
-	flags.String("to", "", "last period (YYYY, YYYYQQ, or YYYYMM)")
-	flags.String("flow", "", "trade flow: I, E, RE, or TB")
+	flags.String("reporter", "", "reporter economy: name (Germany), 3-digit code (276), or group name/ID")
+	flags.String("partner", "world", "partner economy: name, code, or group (default world)")
+	flags.String("from", "", "first period (2024, 2024-Q1, 2024-01, Jan-2024)")
+	flags.String("to", "", "last period (default: --from)")
+	flags.String("flow", "", "trade flow: I, E, RE, or TB (imports, exports, ...)")
 	flags.String("currency", "USD", "three-letter currency for value queries")
 	flags.Int("page", 1, "page number")
 	flags.Int("page-size", 100, "records per page")
@@ -54,29 +48,30 @@ func newTimeSeriesCommand(goods bool) *cobra.Command {
 	flags.String("sort-by", "", "provider sort field")
 	flags.String("sort-dir", "", "asc or desc")
 	if goods {
-		flags.String("product", "", "HS product code or ALL")
-		flags.String("product-group", "", "product-group ID")
+		flags.String("product", "all", "HS product: name, code, group name/ID, or all")
 		flags.String("unit", "VAL", "measure: VAL, QTY, or GV")
 		flags.String("data", "D", "direct, mirror, or mixed data: D, M, or X")
 		flags.String("hs-level", "", "product depth for byProduct: 2, 4, 6, or 10")
 	} else {
-		flags.String("service", "", "EBOPS service code")
+		flags.String("service", "", "EBOPS service: name, code (S...), display code (3.1.1), or all")
 		flags.Bool("all-services", false, "request aggregate services (ALL)")
 		flags.String("service-level", "", "EBOPS depth for byService: 3, 6, 9, 12, or 15")
 	}
-	required := []string{"frequency", "dimension", "from", "to", "flow"}
-	for _, name := range required {
-		_ = command.MarkFlagRequired(name)
-	}
+	_ = command.MarkFlagRequired("frequency")
+	_ = command.MarkFlagRequired("dimension")
+	_ = command.MarkFlagRequired("from")
+	_ = command.MarkFlagRequired("flow")
 	return command
 }
 
 func runGoodsTimeSeries(command *cobra.Command) error {
-	request, err := goodsRequest(command)
+	client, err := tradeMapClient(command)
 	if err != nil {
 		return err
 	}
-	client, err := tradeMapClient(command)
+	ctx, cancel := commandContext(command)
+	defer cancel()
+	request, err := goodsRequest(command, newResolver(ctx, client.ReferenceData()))
 	if err != nil {
 		return err
 	}
@@ -84,11 +79,13 @@ func runGoodsTimeSeries(command *cobra.Command) error {
 }
 
 func runServiceTimeSeries(command *cobra.Command) error {
-	request, err := serviceRequest(command)
+	client, err := tradeMapClient(command)
 	if err != nil {
 		return err
 	}
-	client, err := tradeMapClient(command)
+	ctx, cancel := commandContext(command)
+	defer cancel()
+	request, err := serviceRequest(command, newResolver(ctx, client.ReferenceData()))
 	if err != nil {
 		return err
 	}
@@ -130,7 +127,7 @@ func fetchPages(command *cobra.Command, service *timeseries.Service, request tim
 	return writeTimeSeries(command.OutOrStdout(), format, pages)
 }
 
-func goodsRequest(command *cobra.Command) (timeseries.Request, error) {
+func goodsRequest(command *cobra.Command, resolve *resolver) (timeseries.Request, error) {
 	frequencyName, _ := command.Flags().GetString("frequency")
 	frequency, err := parseFrequency(frequencyName, true)
 	if err != nil {
@@ -141,21 +138,24 @@ func goodsRequest(command *cobra.Command) (timeseries.Request, error) {
 	if err != nil {
 		return timeseries.Request{}, err
 	}
-	reporter, err := reporterSelector(command)
+	reporterName, _ := command.Flags().GetString("reporter")
+	reporter, reporterNote, err := resolve.resolveReporter(reporterName)
 	if err != nil {
-		return timeseries.Request{}, err
+		return timeseries.Request{}, fmt.Errorf("--reporter: %w", err)
 	}
-	partner, err := partnerSelector(command)
+	partnerName, _ := command.Flags().GetString("partner")
+	partner, partnerNote, err := resolve.resolvePartner(partnerName)
 	if err != nil {
-		return timeseries.Request{}, err
+		return timeseries.Request{}, fmt.Errorf("--partner: %w", err)
 	}
-	goods, err := goodsSelector(command)
+	productName, _ := command.Flags().GetString("product")
+	goods, goodsNote, err := resolve.resolveGoods(productName)
 	if err != nil {
-		return timeseries.Request{}, err
+		return timeseries.Request{}, fmt.Errorf("--product: %w", err)
 	}
 	from, _ := command.Flags().GetString("from")
 	to, _ := command.Flags().GetString("to")
-	periods, err := parsePeriods(frequency, from, to)
+	periods, err := parseFriendlyPeriodRange(frequency, from, to)
 	if err != nil {
 		return timeseries.Request{}, err
 	}
@@ -180,12 +180,13 @@ func goodsRequest(command *cobra.Command) (timeseries.Request, error) {
 		return timeseries.Request{}, err
 	}
 	if dimension.String() == "byProduct" && level.String() == "" {
-		return timeseries.Request{}, fmt.Errorf("--hs-level is required for byProduct queries")
+		return timeseries.Request{}, missingFlagError("--hs-level is required for byProduct queries")
 	}
 	pagination, sort, currency, err := pageAndSort(command)
 	if err != nil {
 		return timeseries.Request{}, err
 	}
+	explain(command, "reporter %s; partner %s; %s", reporterNote, partnerNote, goodsNote)
 	return timeseries.Request{
 		Frequency: frequency, Dimension: dimension, Reporter: reporter, Partner: partner,
 		Goods: goods, Periods: periods, Flow: flow, DataMode: dataMode, Unit: unit,
@@ -193,7 +194,7 @@ func goodsRequest(command *cobra.Command) (timeseries.Request, error) {
 	}, nil
 }
 
-func serviceRequest(command *cobra.Command) (timeseries.ServiceRequest, error) {
+func serviceRequest(command *cobra.Command, resolve *resolver) (timeseries.ServiceRequest, error) {
 	frequencyName, _ := command.Flags().GetString("frequency")
 	frequency, err := parseFrequency(frequencyName, false)
 	if err != nil {
@@ -204,21 +205,25 @@ func serviceRequest(command *cobra.Command) (timeseries.ServiceRequest, error) {
 	if err != nil {
 		return timeseries.ServiceRequest{}, err
 	}
-	reporter, err := reporterSelector(command)
+	reporterName, _ := command.Flags().GetString("reporter")
+	reporter, reporterNote, err := resolve.resolveReporter(reporterName)
 	if err != nil {
-		return timeseries.ServiceRequest{}, err
+		return timeseries.ServiceRequest{}, fmt.Errorf("--reporter: %w", err)
 	}
-	partner, err := partnerSelector(command)
+	partnerName, _ := command.Flags().GetString("partner")
+	partner, partnerNote, err := resolve.resolvePartner(partnerName)
 	if err != nil {
-		return timeseries.ServiceRequest{}, err
+		return timeseries.ServiceRequest{}, fmt.Errorf("--partner: %w", err)
 	}
-	service, err := serviceSelector(command)
+	serviceName, _ := command.Flags().GetString("service")
+	allServices, _ := command.Flags().GetBool("all-services")
+	service, serviceNote, err := resolve.resolveService(serviceName, allServices)
 	if err != nil {
-		return timeseries.ServiceRequest{}, err
+		return timeseries.ServiceRequest{}, fmt.Errorf("--service: %w", err)
 	}
 	from, _ := command.Flags().GetString("from")
 	to, _ := command.Flags().GetString("to")
-	periods, err := parsePeriods(frequency, from, to)
+	periods, err := parseFriendlyPeriodRange(frequency, from, to)
 	if err != nil {
 		return timeseries.ServiceRequest{}, err
 	}
@@ -233,12 +238,13 @@ func serviceRequest(command *cobra.Command) (timeseries.ServiceRequest, error) {
 		return timeseries.ServiceRequest{}, err
 	}
 	if dimension.String() == "byService" && level.String() == "" {
-		return timeseries.ServiceRequest{}, fmt.Errorf("--service-level is required for byService queries")
+		return timeseries.ServiceRequest{}, missingFlagError("--service-level is required for byService queries")
 	}
 	pagination, sort, currency, err := pageAndSort(command)
 	if err != nil {
 		return timeseries.ServiceRequest{}, err
 	}
+	explain(command, "reporter %s; partner %s; %s", reporterNote, partnerNote, serviceNote)
 	return timeseries.ServiceRequest{
 		Frequency: frequency, Dimension: dimension, Reporter: reporter, Partner: partner,
 		Service: service, Periods: periods, Flow: flow, Currency: currency,

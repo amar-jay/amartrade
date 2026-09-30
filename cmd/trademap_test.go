@@ -119,3 +119,82 @@ func TestServicesTimeSeriesAggregate(t *testing.T) {
 		t.Fatalf("stdout %s", stdout.String())
 	}
 }
+
+func TestGoodsTimeSeriesResolvesNamesAndDefaults(t *testing.T) {
+	query := map[string]string{}
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/countries":
+			_, _ = writer.Write([]byte(`[{"countryCd":"276","label":"Germany","nes":false,"ti":true},{"countryCd":"000","label":"World","nes":false,"ti":true}]`))
+		case "/countries/groups/generic":
+			_, _ = writer.Write([]byte(`[]`))
+		case "/goods/timeSeries/yearly/byCountry":
+			for key, values := range request.URL.Query() {
+				if len(values) > 0 {
+					query[key] = values[0]
+				}
+			}
+			_, _ = writer.Write([]byte(`{"nbRecords":1,"page":1,"nbRecordPerPage":100,"nbPages":1,"records":[],"aggregateRecords":[],"sources":[]}`))
+		default:
+			t.Errorf("unexpected path %s", request.URL.Path)
+			_, _ = writer.Write([]byte(`[]`))
+		}
+	}))
+	defer server.Close()
+
+	command := NewRootCommand("dev", "unknown")
+	command.SetArgs([]string{
+		"trademap", "--base-url", server.URL, "--format", "json",
+		"goods", "time-series",
+		"--frequency", "yearly", "--dimension", "byCountry",
+		"--reporter", "Germany", "--from", "2024", "--flow", "exports",
+	})
+	var stdout, stderr strings.Builder
+	if err := execute(command, strings.NewReader(""), &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	// Name resolved through the catalog; partner/product/to all defaulted.
+	if query["country"] != "276" {
+		t.Fatalf("country=%s query=%v", query["country"], query)
+	}
+	if query["partner"] != "000" {
+		t.Fatalf("partner=%s query=%v", query["partner"], query)
+	}
+	if query["product"] != "ALL" {
+		t.Fatalf("product=%s query=%v", query["product"], query)
+	}
+	if query["periodFrom"] != "2024" || query["periodTo"] != "2024" {
+		t.Fatalf("periods=%v", query)
+	}
+	if !strings.Contains(stderr.String(), "276") {
+		t.Fatalf("stderr missing resolution note: %q", stderr.String())
+	}
+}
+
+func TestFriendlyQuarterlyPeriod(t *testing.T) {
+	query := map[string]string{}
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		for key, values := range request.URL.Query() {
+			if len(values) > 0 {
+				query[key] = values[0]
+			}
+		}
+		_, _ = writer.Write([]byte(`{"nbRecords":0,"page":1,"nbRecordPerPage":100,"nbPages":1,"records":[],"aggregateRecords":[],"sources":[]}`))
+	}))
+	defer server.Close()
+
+	command := NewRootCommand("dev", "unknown")
+	command.SetArgs([]string{
+		"trademap", "--base-url", server.URL, "--format", "json",
+		"goods", "time-series",
+		"--frequency", "quarterly", "--dimension", "byCountry",
+		"--reporter", "276", "--partner", "000",
+		"--from", "2024-Q1", "--to", "Q2-2024", "--flow", "E",
+	})
+	if err := execute(command, strings.NewReader(""), &strings.Builder{}, &strings.Builder{}); err != nil {
+		t.Fatal(err)
+	}
+	if query["periodFrom"] != "202401" || query["periodTo"] != "202402" {
+		t.Fatalf("periods=%v", query)
+	}
+}
