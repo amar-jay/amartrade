@@ -8,7 +8,7 @@ Examples assume `./bin/amartrade`, `rg`, and `jq` exist. Prefer `rg` for text fi
 `run_command` does NOT interpret shell. To chain, invoke the shell explicitly:
 
 ```sh
-sh -c './bin/amartrade trademap search Ghana --format jsonl; echo ---; ./bin/amartrade trademap goods imports --by product --from GHA --years 2024 --hs-level 4 --format csv | grep -E "^REPORTER|GHA,WORLD,(2710,|8703,|8429,)"'
+sh -c 'set -o pipefail; reporter=$(./bin/amartrade trademap search Ghana --type economy --format jsonl | jq -er "select(.label == \"Ghana\") | .selector") && ./bin/amartrade trademap goods imports --by product --from "$reporter" --years 2024 --hs-level 4 --format csv | rg "^(REPORTER|$reporter,WORLD,(2710|8703|8429),)"'
 # command=sh args=[-c, <script>] cwd=.
 ```
 
@@ -16,7 +16,7 @@ sh -c './bin/amartrade trademap search Ghana --format jsonl; echo ---; ./bin/ama
 
 ### 1.1 Discover then query (2-in-1)
 ```sh
-sh -c './bin/amartrade trademap search Ghana --format jsonl; ./bin/amartrade trademap search 2710 --type product --format jsonl'
+sh -c 'set -o pipefail; reporter=$(./bin/amartrade trademap search Ghana --type economy --format jsonl | jq -er "select(.label == \"Ghana\") | .selector") && printf "reporter=%s\n" "$reporter" && ./bin/amartrade trademap search 2710 --type product --format jsonl'
 ```
 
 ### 1.2 Separators for parsing
@@ -96,5 +96,5 @@ Errors: nonzero exit with a message on stderr. Common cases are missing/invalid 
 ## 3. Recipe: Ghana fuels (copy-paste)
 
 ```sh
-sh -c 'set -o pipefail; ./bin/amartrade trademap search Ghana --format jsonl; echo ---HS2---; ./bin/amartrade trademap goods imports --by product --from GHA --years 2024 --hs-level 2 --format csv | awk -F, '\''NR == 1 || $4 == "false"'\'' | { IFS= read -r h; printf "%s\n" "$h"; sort -t, -k7,7nr | head -5; }; echo ---HS4---; ./bin/amartrade trademap goods imports --by product --from GHA --years 2024 --hs-level 4 --format csv | awk -F, '\''NR == 1 || $4 == "false"'\'' | { IFS= read -r h; printf "%s\n" "$h"; sort -t, -k7,7nr | head -5; }; echo ---PARTNERS-2710---; ./bin/amartrade trademap goods imports --by partner --from GHA --product 2710 --years 2024 --format csv | awk -F, '\''NR == 1 || $4 == "false"'\'' | { IFS= read -r h; printf "%s\n" "$h"; sort -t, -k7,7nr | head -10; }'
+sh -c 'set -o pipefail; reporter=$(./bin/amartrade trademap search Ghana --type economy --format jsonl | jq -er "select(.label == \"Ghana\") | .selector") && printf "reporter=%s\n" "$reporter" && echo ---HS2--- && ./bin/amartrade trademap goods imports --by product --from "$reporter" --years 2024 --hs-level 2 --format csv | awk -F, '\''NR == 1 || $4 == "false"'\'' | { IFS= read -r h; printf "%s\n" "$h"; sort -t, -k7,7nr | head -5; } && echo ---HS4--- && ./bin/amartrade trademap goods imports --by product --from "$reporter" --years 2024 --hs-level 4 --format csv | awk -F, '\''NR == 1 || $4 == "false"'\'' | { IFS= read -r h; printf "%s\n" "$h"; sort -t, -k7,7nr | head -5; } && echo ---PARTNERS-2710--- && ./bin/amartrade trademap goods imports --by partner --from "$reporter" --product 2710 --years 2024 --format csv | awk -F, '\''NR == 1 || $4 == "false"'\'' | { IFS= read -r h; printf "%s\n" "$h"; sort -t, -k7,7nr | head -10; }'
 ```
